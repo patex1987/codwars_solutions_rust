@@ -1,16 +1,26 @@
 use std::{
     char,
+    cmp::Ordering,
     collections::{BTreeMap, BTreeSet, HashMap},
 };
 
 fn main() {
     // println!("Hello, world!");
-    let text_1 = "yes we are ";
+    let text_1 = "yes we are yy";
     let text_2 = "yyes we are rrrrr";
     let x = mix(text_1, text_2);
     println!("{}", x);
 }
 
+///
+/// - iterate concurrently through both words concurrent
+/// - keep track of the current character count in both
+/// - compare the chars at the current position `char_count_mapping` (char -> (left word count, right word count)) and
+/// `ordered_counts_to_chars` - ordered tree map keyed by the count, values are the characters ordered
+///     - if equals: increment the character count seen for that character. Delete the old character count, update the
+///     new character count in `ordered_counts_to_chars`
+///     - if they are different: delete the old count and update the new count
+///
 fn mix(s1: &str, s2: &str) -> String {
     let mut position = 0;
     let mut word_1_finished = false;
@@ -139,7 +149,65 @@ fn mix(s1: &str, s2: &str) -> String {
     println!("{:?}", ordered_counts_to_chars);
 
     // TODO: pretty printing here, and return the pretty printed string (check the task for how to do the pretty printing properly)
-    String::from("result")
+    let result = generate_ordered_count_representation(ordered_counts_to_chars, char_count_mapping);
+    println!("Rendered result: {:?}", result);
+    result
+}
+
+fn generate_ordered_count_representation(
+    ordered_counts_to_chars: BTreeMap<i32, BTreeSet<char>>,
+    char_count_mapping: HashMap<char, (i32, i32)>,
+) -> String {
+    let mut result = String::new();
+    let mut first = true;
+    for (count, chars) in ordered_counts_to_chars.iter().rev() {
+        if *count <= 1 {
+            continue;
+        }
+        let mut inner_set: BTreeSet<String> = BTreeSet::new();
+        for char in chars.iter() {
+            let (left, right) = char_count_mapping.get(char).expect("This key should exist");
+            let compare_char = match left.cmp(right) {
+                Ordering::Equal => '=',
+                Ordering::Greater => '1',
+                Ordering::Less => '2',
+            };
+
+            let text_repr = format!(
+                "{}:{}",
+                compare_char,
+                char.to_string().repeat(*count as usize)
+            );
+            inner_set.insert(text_repr);
+            // if !first {
+            //     result.push('/');
+            // }
+
+            // result.push_str(&format!(
+            //     "{}:{}",
+            //     compare_char,
+            //     char.to_string().repeat(*count as usize)
+            // ));
+            // first = false;
+        }
+
+        if inner_set.is_empty() {
+            continue;
+        }
+
+        if !first {
+            result.push('/');
+        }
+        let set_text_repr = inner_set
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<&str>>()
+            .join("/");
+        result.push_str(&set_text_repr);
+        println!("current result is: {:?}", result);
+        first = false;
+    }
+    result
 }
 
 fn get_single_char_remove_add_count_positions(
